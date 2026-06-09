@@ -1238,3 +1238,201 @@ e:"Мінез адамның әлеуметтік тәжірибесі, тәрб
 }
 ]
 },
+  ];
+
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function norm(text){
+  return String(text||"")
+    .toLowerCase()
+    .replace(/\s+/g," ")
+    .replace(/[.,;:!?()«»"']/g,"")
+    .trim();
+}
+
+function sameAnswers(selected, correct){
+  const s=selected.map(norm).sort();
+  const c=correct.map(norm).sort();
+
+  if(s.length!==c.length) return false;
+
+  for(let i=0;i<s.length;i++){
+    if(s[i]!==c[i]) return false;
+  }
+
+  return true;
+}
+
+function render(){
+  const nav=document.getElementById("nav");
+  const app=document.getElementById("app");
+
+  nav.innerHTML=DATA.map((block,i)=>`
+    <a href="#${block.id}">${i+1}-блок</a>
+  `).join("");
+
+  app.innerHTML=DATA.map((block,bi)=>{
+    const questionsHTML=block.questions.map((item,qi)=>{
+      item.options=shuffle(item.options);
+
+      const inputType=item.type==="multi" ? "checkbox" : "radio";
+
+      return `
+        <div class="q">
+          <div class="qtag">
+            Деңгей: ${item.level} | ${item.type==="multi" ? "бірнеше дұрыс жауап" : "бір дұрыс жауап"}
+          </div>
+
+          <div class="qtitle">${qi+1}. ${item.q}</div>
+
+          ${item.options.map((opt,oi)=>`
+            <label class="opt">
+              <input type="${inputType}" name="b${bi}-q${qi}" value="${opt}">
+              ${String.fromCharCode(65+oi)}) ${opt}
+            </label>
+          `).join("")}
+
+          <div class="sourceq">
+            <b>Source:</b> ${item.source}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <section class="card" id="${block.id}">
+        <div class="head">
+          <h2>${block.title}</h2>
+          <div class="desc">${block.desc}</div>
+        </div>
+
+        <div class="summarybox">
+          ${block.summary}
+        </div>
+
+        <div class="keybox">
+          <h3>Маңызды тірек ұғымдар</h3>
+          <div class="grid">
+            ${block.keys.map(k=>`<div class="pill">${k}</div>`).join("")}
+          </div>
+        </div>
+
+        <h3 style="color:#3730a3;margin-top:24px;">Тест сұрақтары</h3>
+
+        ${questionsHTML}
+
+        <button class="btn" onclick="checkBlock(${bi})">
+          Нәтижені көрсету / Показать результат
+        </button>
+
+        <div class="result" id="result-${bi}"></div>
+      </section>
+    `;
+  }).join("") + `
+    <div class="footer">
+      © @elnazm_ln — ресми автор / официальный автор<br>
+      Бұл материалды тек автордың өзі ғана сата алады.<br>
+      Продавать данный материал может только автор.<br>
+      Егер материалды басқа адам сатса, хабарласыңыз: @elnazm_ln<br>
+      Если материал продал другой человек, напишите: @elnazm_ln<br><br>
+      Source: Маклаков А.Г. Общая психология. СПб.: Питер, 2001.
+    </div>
+  `;
+}
+
+function checkBlock(bi){
+  const block=DATA[bi];
+  const box=document.getElementById("result-"+bi);
+
+  let score=0;
+  let html="";
+
+  block.questions.forEach((item,qi)=>{
+    const checked=[...document.querySelectorAll(`input[name="b${bi}-q${qi}"]:checked`)];
+    const selectedAnswers=checked.map(x=>x.value);
+
+    const ok=sameAnswers(selectedAnswers,item.a);
+
+    if(ok) score++;
+
+    const yourAnswer=selectedAnswers.length
+      ? selectedAnswers.map((ans,i)=>`${i+1}) ${ans}`).join("<br>")
+      : "Жауап таңдалмаған / Ответ не выбран";
+
+    const correctAnswer=item.a.map((ans,i)=>`${i+1}) ${ans}`).join("<br>");
+
+    html+=`
+      <div class="ans ${ok ? "ok" : "bad"}">
+        <div><b>${qi+1}. ${item.q}</b></div>
+
+        <div class="${ok ? "oktxt" : "badtxt"}">
+          ${ok ? "Дұрыс / Верно" : "Қате / Неверно"}
+        </div>
+
+        <div class="ex">
+          <b>Сіздің жауабыңыз / Ваш ответ:</b><br>
+          ${yourAnswer}
+        </div>
+
+        <div class="ex">
+          <b>Дұрыс жауап / Правильный ответ:</b><br>
+          ${correctAnswer}
+        </div>
+
+        <div class="ex">
+          <b>Түсіндірме:</b><br>
+          ${item.e}
+        </div>
+
+        <div class="ex">
+          <b>Source:</b><br>
+          ${item.source}
+        </div>
+      </div>
+    `;
+  });
+
+  const percent=Math.round(score/block.questions.length*100);
+
+  box.innerHTML=`
+    <div class="summary">
+      <h3>${score} / ${block.questions.length} дұрыс</h3>
+      <p>Результат: <b>${percent}%</b></p>
+      <p>Бірнеше дұрыс жауап бар сұрақтарда барлық дұрыс жауап таңдалуы керек. Бір артық немесе бір кем болса — қате болып саналады.</p>
+    </div>
+    ${html}
+  `;
+
+  box.scrollIntoView({
+    behavior:"smooth",
+    block:"start"
+  });
+}
+
+render();
+
+document.addEventListener("contextmenu",e=>e.preventDefault());
+document.addEventListener("dragstart",e=>e.preventDefault());
+
+document.addEventListener("keydown",function(e){
+  const k=e.key.toUpperCase();
+
+  if(
+    e.key==="F12" ||
+    (e.ctrlKey && e.shiftKey && ["I","J","C"].includes(k)) ||
+    (e.ctrlKey && ["U","S","P","A","C"].includes(k))
+  ){
+    e.preventDefault();
+  }
+});
+</script>
+
+</body>
+</html>
